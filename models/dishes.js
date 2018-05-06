@@ -16,8 +16,8 @@ const commentSchema = new Schema({
 		required: true
 	},
 	author: {
-		type: String,
-		required: true
+		type: mongoose.Schema.Types.ObjectId,
+		ref: 'User'
 	}
 },{
 	timestamps: true
@@ -57,7 +57,7 @@ const disheSchema = new Schema({
 	comments: [commentSchema]
 	//The comments document becomes a sub document inside dish document
 },{
-	timestamps: true  
+	timestamps: true
 	//This will automatically add created at and updated at timestamps
 });
 
