@@ -17,7 +17,7 @@ favouriteRouter.route('/')
 .get(cors.cors, authenticate.verifyOrdinaryUser, (req, res, next) => {
 
 	Favourites.find({'user': req.user._id})
-	.populate('dishes.id')
+	.populate('dishes')
 	.populate('user')
 	.then((favourites) => {
 		res.statusCode = 200;
@@ -89,8 +89,27 @@ favouriteRouter.route('/:favouriteDishId')
 })
 .get(cors.cors, authenticate.verifyOrdinaryUser, (req, res, next) => {
 
-  res.statusCode = 403;
-	res.end('GET operation not supported on /favourites/'+ req.params.favouriteDishId);
+	Favourites.findOne({user: req.user._id})
+	.then((favourites) => {
+		if(!favourites) {
+			res.statusCode = 200;
+			res.setHeader('Content-Type', 'application/json');
+			return res.json({'exists': false, 'favourites': favourites});
+		}
+		else {
+			if(favourites.dishes.indexOf(req.params.favouriteDishId) < 0) {
+				res.statusCode = 200;
+				res.setHeader('Content-Type', 'application/json');
+				return res.json({'exists': false, 'favourites': favourites});
+			}
+			else {
+				res.statusCode = 200;
+				res.setHeader('Content-Type', 'application/json');
+				return res.json({'exists': true, 'favourites': favourites});
+			}
+		}
+	}, (err) => next(err))
+  .catch((err) => next(err));
 
 })
 .post(cors.corsWithOptions, authenticate.verifyOrdinaryUser, (req, res, next) => {
@@ -135,12 +154,20 @@ favouriteRouter.route('/:favouriteDishId')
   if(favourite != null && favourite.dishes.id(req.params.favouriteDishId) != null) {
     if((favourite.dishes.id(req.params.favouriteDishId).user).equals(req.user._id)) {
       Favourites.findByIdAndRemove(req.params.favouriteDishId)
-	    .then((resp) => {
-        res.statusCode = 200;
-	  	  res.setHeader('Content-Type', 'application/json');
-	  	  res.json(resp);
-	    }, (err) => next(err))
-	    .catch((err) => next(err));
+			.then((favourite) => {
+				favourite.save()
+				.then((favourite) => {
+					Favourites.findById(favourite._id)
+					.populate('user')
+					.populate('dishes')
+					.then((favourite) => {
+						res.statusCode = 200;
+						res.setHeader('Content-Type', 'application/json');
+						res.json(favourite);
+					})
+				})
+			}, (err) => next(err))
+			.catch((err) => next(err));
     }
     else {
       err = new Error('You are not authorized to delete this favourite!');
